@@ -1,15 +1,3 @@
-\documentclass{article}
-\usepackage[utf8]{inputenc}
-
-\title{ee415_design_report}
-\author{Jeppe Hinrichs}
-\date{March 2022}
-
-\newcommand{\comment}[1]{}
-
-\begin{document}
-Body
-\comment{
             +--------------------+
             |        EE 415      |
             | PROJECT 1: THREADS |
@@ -274,9 +262,6 @@ The assignment is quite hard, and it does take long time, but on the other hand 
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
+Open a real-time Q&A section.
 
 >> Any other comments?
-
-
-}
-\end{document}
