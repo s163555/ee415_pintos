@@ -1,0 +1,282 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{ee415_design_report}
+\author{Jeppe Hinrichs}
+\date{March 2022}
+
+\newcommand{\comment}[1]{}
+
+\begin{document}
+Body
+\comment{
+            +--------------------+
+            |        EE 415      |
+            | PROJECT 1: THREADS |
+            |   DESIGN DOCUMENT  |
+            +--------------------+
+
+---- GROUP ----
+
+20214943 MAO YIFAN
+20214926 HINRICHS JEPPE
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+Here, I want to share some ideas as a learner. This project guides us to improve OS system step by step, our understanding of OS system is constructed though making by ourselves, which is a wonderful way to study.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+* Thierry Sans, Pintos - Getting Started / Thread Switching
+https://www.youtube.com/watch?v=4C8J6jLPJPc&t=664s
+https://www.youtube.com/watch?v=7D77e5bm8lw
+
+
+                 ALARM CLOCK
+                 ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+1) 
+struct thread{
+    int64_t wakeup_tick;                     //time to wake up.
+}                                            
+static struct list sleep_list;               //similar to ready_list, a list to store threads that is sleeping.
+static int64_t next_tick_to_awake;           //similar to next_thread_to_run, this variable helps us find next tick to wake up.
+2) 
+void timer_sleep(int64_t ticks)                           //Sleeps for some ticks.
+void timer_interrupt(struct intr_frame *args UNUSED)      //For interrupt.
+void thread_sleep(int64_t ticks)                          //Let the thread sleep.
+list_init (&sleep_list);                                  //Initialize the sleep_list.
+
+
+---- ALGORITHMS ----
+
+>> A2: Briefly describe what happens in a call to timer_sleep(),
+>> including the effects of the timer interrupt handler.
+After modifying the busy waiting, 
+1) The timer_sleep() first check whether the thread is going to running,
+2) If not, then call function thread_sleep(),
+3) Prohibit interrupts,
+4) Update the time to wake up as (ticks + sleep time),
+5) Put the thread at the end of the sleep_list,
+6) Block the thread,
+7) Allow the interrupts again.
+As for timer interrupt handler,
+1) Prohibit interrupts,
+2) Check the sleep_list to find the thread to wake up,
+3) Unblock the thread that is going to wake up and delete it from sleep_list 
+4) Allow the interrupts again.
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+1) The interrupt handler calls the function thread_wakeup(),
+2) In this function, the time to wake is compared from the beginning of sleep_list, and once it meets a larger one, it finished.
+
+---- SYNCHRONIZATION ----
+
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+The interrupts are prohibited during one thread is calling timer_sleep().
+
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+The timer interrupt is prohibited during a call to timer_sleep() as we mentioned in A2.
+
+---- RATIONALE ----
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+1) Before we modify, the thread keeps checking cpu before it's turn and this is a busy waiting.
+2) To change it, we add a sleep_list, which is similar to ready_list, to help thread stop interrupting cpu before it's turn.
+3) After we modify, the threads will go to sleep if they are not going to run and the thread with small wake up time will wake up early.
+4) We choose to use sleep_list because it's very similar to ready_list so it's easy to implement.
+
+             PRIORITY SCHEDULING
+             ===================
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+1)
+struct thread{
+    int init_priority;                                 //store the original priority, we use it to restore after donation.
+    struct lock *wait_on_lock;                         //list of threads that waiting for a lock.
+    struct list donations;                             //help us find the donors.
+    struct list_elem donation_elem;                    //element of donation.
+}
+2)
+void list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_compare_priority, NULL)  //Sort and insert in the list.
+void list_sort (&sema->waiters, thread_compare_priority, NULL)                                      //Sort the list.
+void thread_test_preemption(void)                                                                   //Let the thread preempt.
+bool thread_compare_priority (struct list_elem *l, struct list_elem *s, void *aux UNUSED)           //Compare the priority.
+void thread_donate_priority(void)                                                                   //Donate the priority.
+void thread_remove_with_lock(struct lock *lock)                                                     //Remove the lock.
+void thread_refresh_priority(void)                                                                  //Refresh the priority.
+
+>> B2: Explain the data structure used to track priority donation.
+>> Use ASCII art to diagram a nested donation.  (Alternately, submit a
+>> .png file.)
+1) A list of donation is added in the structure thread to track the priority donation.
+2) 
+        ---------     ---------    ---------     --------- 
+        |Thread |     |Thread |    |Thread |     |Thread |
+        |   1   | <-  |   2   | <- |   3   | <-  |   4   |
+        |pri:10 |     |pri:9  |    |pri:7  |     |pri:14 |
+        ---------     ---------    ---------     --------- 
+now:     pri:14        pri:14       pri:14        pri:14
+Note: The priority is the largest priority in the donation list.
+---- ALGORITHMS ----
+
+>> B3: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?
+Put the thread with highest priority in the first position of list.
+1) Before we modify, the system always places a new thread at the end of the list,
+2) After we modify, the way to place thread is changed to put the thread with higher priority in the former position.
+
+>> B4: Describe the sequence of events when a call to lock_acquire()           
+>> causes a priority donation.  How is nested donation handled?                   
+1) Check whether it is locked or not,
+2) Compare the priority between current thread and lock's holder,
+3) If the current thread's priority is smaller, donate the priority of lock's holder to current thread. Else, just wait for running,
+4) Make the current thread hold the lock.
+
+As for nested donation, 
+We limit the depth of donors as 8 and check whether the lock holder is also waiting a lock.
+
+>> B5: Describe the sequence of events when lock_release() is called
+>> on a lock that a higher-priority thread is waiting for.
+1) Remove the lock from the lock list,
+2) Restore the priority of this thread,
+3) Make the lock free to use.
+---- SYNCHRONIZATION ----
+
+>> B6: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?
+1) There is a probability that the priority may change because of priority donation, 
+2) Prohibit the interrupts first, just like many functions we talked about before, 
+3) No, because the definition of lock in our code cannot provide such a function.
+
+---- RATIONALE ----
+
+>> B7: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+In original pintos, the thread is always putted at the end of ready_list.
+To achieve the thread with highest priority run first, there are two ways, the first method is 
+1) Check from the beginning of ready_list to the end and find the thread with highest priority. But it takes a lot of time since we need to compare the list every time.
+2) So instead of searching, we sort the thread every time there is a new thread coming in. In this case, we just run the first thread in the waiting list, which it's priority is highest at the same time.
+As for donation, donation helps us solve the problem that the thread with higher priority is waiting(priority inversion). Note: Remember to restore the priority of thread that receives the donation is quite important.
+
+              ADVANCED SCHEDULER
+              ==================
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+1)
+int load_avg;
+struct thread{
+    int nice;
+    int recent_cpu;
+}                                        //load_avg, nice, recent_cpu are all used for multiple-level feedback scheduler. 
+bool thread_mlfqs;                       //Use multi-level feedback queue scheduler
+2)
+void mlfqs_calc_priority (struct thread *t)                                 //Calculate the priority.
+void mlfqs_calc_recent_cpu (struct thread *t)                               //Calculate the recent_cpu.
+void mlfqs_calc_load_avg (void)                                             //Calculate the load_avg.
+void mlfqs_recalc_recent_cpu (void)                                         //Recalculate the recent_cpu.
+void mlfqs_recalc_priority (void)                                           //Recalculate the priority.
+
+---- ALGORITHMS ----
+
+>> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
+>> has a recent_cpu value of 0.  Fill in the table below showing the
+>> scheduling decision and the priority and recent_cpu values for each
+>> thread after each given number of timer ticks:
+
+timer  recent_cpu    priority   thread
+ticks   A   B   C   A   B   C   to run
+-----  --  --  --  --  --  --   ------
+ 0      0   1   2  63  61  59      A
+ 4      4   1   2  62  61  59      A
+ 8      8   1   2  61  61  59      B
+12      8   5   2  61  60  59      A
+16      12  5   2  60  60  59      B
+20      12  9   2  60  59  59      A
+24      16  9   2  59  59  59      C
+28      16  9   6  59  59  58      B
+32      16  13  6  59  58  58      A
+36      20  13  6  58  58  58      C
+
+>> C3: Did any ambiguities in the scheduler specification make values
+>> in the table uncertain?  If so, what rule did you use to resolve
+>> them?  Does this match the behavior of your scheduler?
+Yes, 
+1) The calculation takes time. We need to calculate load_avg before we calculate recent_cpu, but we assume they happen at the same time. So in fact, the time that thread use cpu is less than we think. In this case, We calculate every 4 ticks to make the error smaller.
+2) No clear schedule when the priority is equal. Just think of question C2, when the priority is equal, which thread to run is not clearly defined. In this case, we let the thread with lower recent_cpu to run first.
+
+>> C4: How is the way you divided the cost of scheduling between code
+>> inside and outside interrupt context likely to affect performance?
+1) Since the recent_cpu and other elements are calculated every tick but the priority is calculated every 4 ticks, the time for interrupts is reduced, which improves the performance.
+2) Since we already sorted the queue, little time are spent to find the thread with highest priority, which improves the performace.
+
+---- RATIONALE ----
+
+>> C5: Briefly critique your design, pointing out advantages and
+>> disadvantages in your design choices.  If you were to have extra
+>> time to work on this part of the project, how might you choose to
+>> refine or improve your design?
+1) We use conceptions like nice to help us schedule the threads better, but some time are used on calculation rather than running the thread in cpu.
+2) We only use one queue in this project, so we need time to insert and sort over and over again. In addition,the queue is updated real-time. We can save time if 64 queues are used.  In this case, with an index of priority, we can just put it at end of list.
+
+>> C6: The assignment explains arithmetic for fixed-point math in
+>> detail, but it leaves it open to you to implement it.  Why did you
+>> decide to implement it the way you did?  If you created an
+>> abstraction layer for fixed-point math, that is, an abstract data
+>> type and/or a set of functions or macros to manipulate fixed-point
+>> numbers, why did you do so?  If not, why not?
+1) Because "Pintos does not support floating-point arithmetic in the kernel", but we need to calculate real numbers like recent_cpu, in this case, we use a fixed-point library make these computations.
+2) We implemented a set of functions simply because it was straightforward and easy. It could just as well have been created using macros for simplicity. We could have avoided modifying the make solution and creating prototypes, if we used compiler macros.
+
+               SURVEY QUESTIONS
+               ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+The assignment is quite hard, and it does take long time, but on the other hand is interesting and great for learning. Piazza is a great student discussion tool, but it is not sufficient to access TA support. There should be weekly TA hours for future projects, where you can demonstrate your problem live and receive assistance. Please take this feedback to heart.
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+1) Add a sleep_list help OS avoid wasting time. 
+2) The idea of donation amazes me. 
+3) Some values like nice help OS judge the threads.
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future quarters or the remaining projects?
+
+>> Any other comments?
+
+
+}
+\end{document}
