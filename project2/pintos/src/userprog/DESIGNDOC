@@ -84,9 +84,6 @@ Notice that there is a argument named save_ptr in function strtok_r(), we need s
     struct thread * parent;             /* parent thread */
     struct list child_list;             /* child thread list */
     struct list_elem child_elem;
-    struct semaphore wait_sema;         /* wait until child process exit */ 
-    struct semaphore load_sema;         /* wait until child process loaded */
-    struct semaphore exit_sema;
     int wait_on;                        /* which pid thread waits on*/
     int exit_status;                    /* Exit status */
     int load_status;                    /* Load status */
