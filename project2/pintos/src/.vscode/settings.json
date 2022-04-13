@@ -1,0 +1,20 @@
+{
+    "files.associations": {
+        "*.tcc": "c",
+        "limits": "c",
+        "exception": "c",
+        "algorithm": "c",
+        "cmath": "c",
+        "fstream": "c",
+        "istream": "c",
+        "ostream": "c",
+        "streambuf": "c",
+        "random": "c",
+        "typeinfo": "c",
+        "*.inc": "c",
+        "syscall.h": "c",
+        "shutdown.h": "c",
+        "filesys.h": "c",
+        "thread.h": "c"
+    }
+}
