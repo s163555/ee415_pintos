@@ -78,19 +78,29 @@ Notice that there is a argument named save_ptr in function strtok_r(), we need s
     #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
     #define FDT_SIZE 128                     /* File Descriptor Table Size. */
     #define SIG_MAX 10
-    struct file *fdt[FDT_SIZE];         /* File Descriptor Table */
-    int next_fd;                        /* Next file descriptor */
+
     struct sig {
     int num;
     void * SignalHandler;
     };
-    struct thread * parent;             /* parent thread */
-    struct list child_list;             /* child thread list */
+    struct file *fdt[FDT_SIZE];         /* File Descriptors */
+    int next_fd;                        /* Next file descriptor */
+
+    struct thread * parent;             
+    struct list child_list;             /* List for children threads*/
     struct list_elem child_elem;
-    int wait_on;                        /* which pid thread waits on*/
-    int exit_status;                    /* Exit status */
-    int load_status;                    /* Load status */
-    int by_exit;                        /* exit by exit() system call */
+    struct semaphore wait_sema;         /* wait for children thread*/ 
+    struct semaphore load_sema;         /* wait for child process loaded */
+    struct semaphore exit_sema;
+    int wait_on;                        /* wait of pid thread */
+    int exit_status;                    
+    int load_status;                    
+    int by_exit;                        /* exit by system call */
+
+    struct sig sig[SIG_MAX];     /* Signal handling */
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+
 
     struct sig sig[SIG_MAX];     /* Table for signal handling */
     /* Owned by thread.c. */
