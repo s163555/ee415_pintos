@@ -122,7 +122,7 @@ struct thread
     int wait_on;                        /* wait of pid thread */
     int exit_status;                    
     int load_status;                    
-    int by_exit;                        /* exit by exit() system call */
+    int by_exit;                        /* exit by system call */
 
     struct sig sig[SIG_MAX];     /* Signal handling */
     /* Owned by thread.c. */
