@@ -110,21 +110,21 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    struct file *fdt[FDT_SIZE];         /* File Descriptor Table */
+    struct file *fdt[FDT_SIZE];         /* File Descriptors */
     int next_fd;                        /* Next file descriptor */
 
-    struct thread * parent;             /* parent thread */
-    struct list child_list;             /* child thread list */
+    struct thread * parent;             
+    struct list child_list;             /* List for children threads*/
     struct list_elem child_elem;
-    struct semaphore wait_sema;         /* wait until child process exit */ 
-    struct semaphore load_sema;         /* wait until child process loaded */
+    struct semaphore wait_sema;         /* wait for children thread*/ 
+    struct semaphore load_sema;         /* wait for child process loaded */
     struct semaphore exit_sema;
-    int wait_on;                        /* which pid thread waits on*/
-    int exit_status;                    /* Exit status */
-    int load_status;                    /* Load status */
+    int wait_on;                        /* wait of pid thread */
+    int exit_status;                    
+    int load_status;                    
     int by_exit;                        /* exit by exit() system call */
 
-    struct sig sig[SIG_MAX];     /* Table for signal handling */
+    struct sig sig[SIG_MAX];     /* Signal handling */
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
