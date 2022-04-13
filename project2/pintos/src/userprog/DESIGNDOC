@@ -80,7 +80,10 @@ Notice that there is a argument named save_ptr in function strtok_r(), we need s
     #define SIG_MAX 10
     struct file *fdt[FDT_SIZE];         /* File Descriptor Table */
     int next_fd;                        /* Next file descriptor */
-
+    struct sig {
+    int num;
+    void * SignalHandler;
+    };
     struct thread * parent;             /* parent thread */
     struct list child_list;             /* child thread list */
     struct list_elem child_elem;
